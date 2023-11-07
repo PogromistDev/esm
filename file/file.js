@@ -1,11 +1,7 @@
-var fileInput = null;
-
-function init() {
-    const input = document.createElement("input");
-    input.type = "file";
-
-    fileInput = input;
-}
+const fileInput = document.createElement("input");
+const a = document.createElement("a");
+fileInput.type = "file";
+a.download = "default";
 
 function accepts(typeSpecifier) {
     fileInput.accepts = typeSpecifier;
@@ -21,14 +17,29 @@ function single() {
 
 //
 
-function __browse() {
-    return new Promise((resolve, reject) => {
-        fileInput.onchange = () => {
-            resolve(fileInput.files);
-        };
-        fileInput.onerror = reject;
-        fileInput.click();
-    });
+async function __browse() {
+
+    if ("showOpenFilePicker" in window) {
+        try {
+            const fileSystemFileHandles = await window.showOpenFilePicker({ multiple: fileInput.multiple });
+            const files = await Promise.all( fileSystemFileHandles.map(fsHandle => fsHandle.getFile()) );
+
+            return files;
+        }
+        catch(err) {
+            throw err;
+        }
+    } else {
+        return new Promise((resolve, reject) => {
+            fileInput.onchange = () => {
+                resolve(fileInput.files);
+            };
+            fileInput.onblur = reject;
+            fileInput.onerror = reject;
+            fileInput.click();
+
+        });
+    }
 }
 
 // returns multiple files or single file depending on "multiple" arg
@@ -60,7 +71,13 @@ function json(blob) {
     return new Promise((resolve, reject) => {
         const fs = new FileReader();
         fs.onload = () => {
-            resolve(JSON.parse(fs.result));
+            try {
+                const json = JSON.parse(fs.result)
+                resolve(json);
+            }
+            catch (err) {
+                reject(err);
+            }
         };
         fs.onerror = reject;
         fs.readAsText(blob);
@@ -111,54 +128,86 @@ function dataURL(blob) {
     });
 }
 
-// 
+//
 
 async function openJSON() {
-    const file = await openSingle();
-    return json(file);
+    try {
+        const file = await openSingle();
+        return json(file);
+    } catch (err) {
+        throw err;
+    }
 }
 
 async function openText() {
-    const file = await openSingle();
-    return text(file);
+    try {
+        const file = await openSingle();
+        return text(file);
+    } catch (err) {
+        throw err;
+    }
 }
 
 async function openArrayBuffer() {
-    const file = await openSingle();
-    return buffer(file);
+    try {
+        const file = await openSingle();
+        return buffer(file);
+    } catch (err) {
+        throw err;
+    }
 }
 
 async function openBinaryString() {
-    const file = await openSingle();
-    return binaryString(file);
+    try {
+        const file = await openSingle();
+        return binaryString(file);
+    } catch (err) {
+        throw err;
+    }
 }
 
 async function openDataURL() {
-    const file = await openSingle();
-    return dataURL(file);
+    try {
+        const file = await openSingle();
+        return dataURL(file);
+    } catch (err) {
+        throw err;
+    }
 }
 
-export default {
-    init,
-    
+function download(blobSrc, fileName) {
+	a.href = blobSrc;
+	a.download = fileName ?? a.download;
+	a.click();
+}
+
+function downloadBlob(blob, fileName) {
+	const blobUrl = URL.createObjectURL(blob);
+	download(blobUrl, fileName);
+}
+
+export {
     open,
-    
+
     openSingle,
     openMultiple,
-    
+
     accepts,
     single,
     multiple,
-    
+
     json,
     text,
     buffer,
     binaryString,
     dataURL,
-    
+
     openJSON,
     openText,
     openArrayBuffer,
     openBinaryString,
-    openDataURL
+    openDataURL,
+
+	download,
+	downloadBlob
 };
